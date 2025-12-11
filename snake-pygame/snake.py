@@ -4,6 +4,15 @@ import random
 import sys
 from ai_agent import RandomAgent, QLearningAgent
 
+# Try to import DQN agent (requires PyTorch)
+try:
+    from dqn_agent import DQNAgent
+
+    DQN_AVAILABLE = True
+except ImportError:
+    DQN_AVAILABLE = False
+    print("Note: DQN not available (install PyTorch: pip install torch)")
+
 # Initialize pygame
 pygame.init()
 
@@ -53,7 +62,8 @@ class SnakeGame:
         self.last_distance_to_food = self._get_distance_to_food()
 
         # Reset agent episode
-        if isinstance(self.agent, QLearningAgent):
+        agent_class_name = type(self.agent).__name__
+        if agent_class_name in ['QLearningAgent', 'DQNAgent']:
             self.agent.reset_episode()
 
     def _spawn_food(self):
@@ -174,8 +184,10 @@ class SnakeGame:
         # Calculate reward
         reward = self._calculate_reward(food_eaten, game_over)
 
-        # Train agent if Q-learning
-        if isinstance(self.agent, QLearningAgent):
+        # Train agent if Q-learning or DQN
+        # Check by class name to avoid import issues
+        agent_class_name = type(self.agent).__name__
+        if agent_class_name in ['QLearningAgent', 'DQNAgent']:
             new_game_state = self._get_game_state()
             self.agent.learn(reward, new_game_state, game_over)
 
@@ -200,7 +212,8 @@ class SnakeGame:
         self._show_score()
 
         # Show Q-learning stats if applicable
-        if isinstance(self.agent, QLearningAgent):
+        agent_class_name = type(self.agent).__name__
+        if agent_class_name in ['QLearningAgent', 'DQNAgent']:
             self._show_agent_stats()
 
         pygame.display.update()
@@ -220,13 +233,20 @@ class SnakeGame:
         font = pygame.font.SysFont('consolas', 16)
 
         epsilon_text = f"Epsilon: {stats['epsilon']:.3f}"
-        qtable_text = f"Q-table: {stats['q_table_size']}"
-
         epsilon_surface = font.render(epsilon_text, True, WHITE)
-        qtable_surface = font.render(qtable_text, True, WHITE)
-
         self.game_window.blit(epsilon_surface, (10, 40))
-        self.game_window.blit(qtable_surface, (10, 60))
+
+        # Show different stats for Q-Learning vs DQN
+        if 'q_table_size' in stats:
+            # Q-Learning agent
+            qtable_text = f"Q-table: {stats['q_table_size']}"
+            qtable_surface = font.render(qtable_text, True, WHITE)
+            self.game_window.blit(qtable_surface, (10, 60))
+        elif 'buffer_size' in stats:
+            # DQN agent
+            buffer_text = f"Buffer: {stats['buffer_size']}"
+            buffer_surface = font.render(buffer_text, True, WHITE)
+            self.game_window.blit(buffer_surface, (10, 60))
 
     def _show_game_over(self):
         """Display game over screen"""
@@ -275,8 +295,10 @@ def main():
     print("1. Watch Random Agent")
     print("2. Watch Trained Q-Learning Agent")
     print("3. Train Q-Learning Agent")
+    if DQN_AVAILABLE:
+        print("4. Watch Trained DQN Agent")
 
-    choice = input("Enter choice (1-3): ")
+    choice = input("Enter choice (1-4): " if DQN_AVAILABLE else "Enter choice (1-3): ")
 
     if choice == '1':
         agent = RandomAgent()
@@ -291,9 +313,9 @@ def main():
     elif choice == '2':
         agent = QLearningAgent(epsilon=0.0)  # No exploration, pure exploitation
         if agent.load_model('q_learning_model.pkl'):
-            print("Loaded trained model")
+            print("Loaded trained Q-Learning model")
             game = SnakeGame(agent, training_mode=False, fps=15)
-            print("Watching trained agent play...")
+            print("Watching trained Q-Learning agent play...")
             print("Close window to exit")
 
             while True:
@@ -305,6 +327,20 @@ def main():
     elif choice == '3':
         print("Please use: python train.py")
         print("Then come back here and choose option 2 to watch the trained agent!")
+
+    elif choice == '4' and DQN_AVAILABLE:
+        agent = DQNAgent(epsilon=0.0)  # No exploration, pure exploitation
+        if agent.load_model('dqn_model_best.pth'):
+            print("Loaded trained DQN model")
+            game = SnakeGame(agent, training_mode=False, fps=15)
+            print("Watching trained DQN agent play...")
+            print("Close window to exit")
+
+            while True:
+                total_reward, score, steps = game.play_episode()
+                print(f"Episode finished - Score: {score}, Steps: {steps}")
+        else:
+            print("No trained model found. Train first using: python train_dqn.py")
 
     else:
         print("Invalid choice")

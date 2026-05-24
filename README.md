@@ -79,3 +79,8 @@ python benchmark.py
 - `RandomAgent` was removed so the project focuses only on Q-Learning and DQN.
 - Saved outputs now go into `artifacts/` instead of being mixed with source code.
 - The DQN and Q-learning algorithms were preserved; the cleanup here is mainly organization, imports, and file paths.
+
+To change the training amount, edit the `num_episodes` value in the training script.
+Q-learning presets and custom input are in `snake_rl/training/qlearning.py`.
+DQN training settings are in `snake_rl/training/dqn.py`.
+You can also adjust `save_interval`, `print_interval`, and `plot_interval` in the same files.

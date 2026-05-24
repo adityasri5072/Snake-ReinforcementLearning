@@ -1,16 +1,18 @@
-# benchmark.py - Unified benchmark for Q-Learning and DQN
-"""
-Simple benchmark script that tests agents and outputs raw data
-User chooses agent and number of games
-"""
-from snake import SnakeGame
-from ai_agent import QLearningAgent
-import numpy as np
 import json
 
-# Try to import DQN
+import numpy as np
+
+from snake_rl.agents.q_learning_agent import QLearningAgent
+from snake_rl.game.snake_game import SnakeGame
+from snake_rl.paths import (
+    BENCHMARK_DQN_PATH,
+    BENCHMARK_QLEARNING_PATH,
+    DQN_BEST_MODEL_PATH,
+    Q_LEARNING_MODEL_PATH,
+)
+
 try:
-    from dqn_agent import DQNAgent
+    from snake_rl.agents.dqn_agent import DQNAgent
 
     DQN_AVAILABLE = True
 except ImportError:
@@ -20,14 +22,6 @@ except ImportError:
 def run_benchmark(agent, num_games, agent_name):
     """
     Run benchmark on an agent and return raw data
-
-    Args:
-        agent: Agent to test
-        num_games: Number of games to play
-        agent_name: Name for display
-
-    Returns:
-        List of scores, List of steps, Agent name
     """
     print(f"\nBenchmarking {agent_name}...")
     print(f"Running {num_games} games...\n")
@@ -37,14 +31,13 @@ def run_benchmark(agent, num_games, agent_name):
     scores = []
     steps_list = []
 
-    for i in range(num_games):
+    for index in range(num_games):
         total_reward, score, steps = game.play_episode()
         scores.append(score)
         steps_list.append(steps)
 
-        # Show progress every 10 games
-        if (i + 1) % 10 == 0 or (i + 1) == num_games:
-            print(f"Progress: {i + 1}/{num_games} games completed")
+        if (index + 1) % 10 == 0 or (index + 1) == num_games:
+            print(f"Progress: {index + 1}/{num_games} games completed")
 
     return scores, steps_list, agent_name
 
@@ -77,14 +70,14 @@ def print_raw_data(scores, steps_list, agent_name):
     print(f"Max: {np.max(steps_list)}")
 
     print("\n--- DERIVED METRICS ---")
-    foods_eaten = [s // 10 for s in scores]
+    foods_eaten = [score // 10 for score in scores]
     print(f"Mean Foods Eaten: {np.mean(foods_eaten):.2f}")
     survival_rate = np.sum(np.array(scores) > 0) / len(scores) * 100
     print(f"Survival Rate (Score > 0): {survival_rate:.1f}%")
     high_score_rate = np.sum(np.array(scores) >= 100) / len(scores) * 100
-    print(f"High Score Rate (≥100): {high_score_rate:.1f}%")
+    print(f"High Score Rate (>=100): {high_score_rate:.1f}%")
     very_high_score_rate = np.sum(np.array(scores) >= 200) / len(scores) * 100
-    print(f"Very High Score Rate (≥200): {very_high_score_rate:.1f}%")
+    print(f"Very High Score Rate (>=200): {very_high_score_rate:.1f}%")
 
     print("\n" + "=" * 60)
 
@@ -93,19 +86,17 @@ def save_to_json(scores, steps_list, agent_name, filename):
     """Save results to JSON file"""
 
     def convert_to_native(obj):
-        """Convert numpy types to Python native types"""
         if isinstance(obj, np.integer):
             return int(obj)
-        elif isinstance(obj, np.floating):
+        if isinstance(obj, np.floating):
             return float(obj)
-        elif isinstance(obj, np.ndarray):
+        if isinstance(obj, np.ndarray):
             return obj.tolist()
-        elif isinstance(obj, list):
+        if isinstance(obj, list):
             return [convert_to_native(item) for item in obj]
-        else:
-            return obj
+        return obj
 
-    foods_eaten = [s // 10 for s in scores]
+    foods_eaten = [score // 10 for score in scores]
 
     data = {
         'agent_name': agent_name,
@@ -143,10 +134,10 @@ def save_to_json(scores, steps_list, agent_name, filename):
         }
     }
 
-    with open(filename, 'w') as f:
-        json.dump(data, f, indent=2)
+    with open(filename, 'w', encoding='utf-8') as file_handle:
+        json.dump(data, file_handle, indent=2)
 
-    print(f"\n✓ Data saved to {filename}")
+    print(f"\nSaved data to {filename}")
 
 
 def main():
@@ -155,7 +146,6 @@ def main():
     print("SNAKE REINFORCEMENT LEARNING - BENCHMARK")
     print("=" * 60)
 
-    # Choose agent
     print("\nWhich agent to benchmark?")
     print("1. Q-Learning")
     if DQN_AVAILABLE:
@@ -163,51 +153,39 @@ def main():
 
     agent_choice = input("\nChoice (1-2): " if DQN_AVAILABLE else "Choice (1): ")
 
-    # Choose number of games
     print("\nHow many games?")
     print("Recommended: 50-100 games for good statistics")
     num_games = int(input("Number of games: "))
 
-    # Load and test agent
     if agent_choice == '1':
-        # Q-Learning
         agent = QLearningAgent(epsilon=0.0)
-        if not agent.load_model('q_learning_model.pkl'):
-            print("\n❌ ERROR: No trained Q-Learning model found!")
-            print("Train first: python train.py")
+        if not agent.load_model(Q_LEARNING_MODEL_PATH):
+            print("\nERROR: No trained Q-Learning model found!")
+            print("Train first: python train_qlearning.py")
             return
         agent_name = "Q-Learning"
-        filename = "benchmark_qlearning.json"
+        filename = BENCHMARK_QLEARNING_PATH
 
     elif agent_choice == '2' and DQN_AVAILABLE:
-        # DQN
         agent = DQNAgent(epsilon=0.0)
-        if not agent.load_model('dqn_model.pth'):
-            print("\n❌ ERROR: No trained DQN model found!")
+        if not agent.load_model(DQN_BEST_MODEL_PATH):
+            print("\nERROR: No trained DQN model found!")
             print("Train first: python train_dqn.py")
             return
         agent_name = "DQN"
-        filename = "benchmark_dqn.json"
+        filename = BENCHMARK_DQN_PATH
 
     else:
         print("Invalid choice!")
         return
 
-    # Run benchmark
     scores, steps_list, agent_name = run_benchmark(agent, num_games, agent_name)
-
-    # Output results
     print_raw_data(scores, steps_list, agent_name)
     save_to_json(scores, steps_list, agent_name, filename)
 
     print("\n" + "=" * 60)
     print("BENCHMARK COMPLETE")
     print("=" * 60)
-    print(f"\n✓ Tested: {agent_name}")
-    print(f"✓ Games: {num_games}")
-    print(f"✓ Data saved: {filename}")
-    print("\nUse this data for your calculations and presentation!")
-
-
-if __name__ == '__main__':
-    main()
+    print(f"\nTested: {agent_name}")
+    print(f"Games: {num_games}")
+    print(f"Data saved: {filename}")

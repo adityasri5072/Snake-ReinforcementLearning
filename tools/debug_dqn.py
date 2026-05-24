@@ -1,17 +1,16 @@
-# debug_dqn.py - Debug DQN training
 """
-This script adds debug prints to figure out why replay buffer stays at 0
+This script adds debug prints to figure out why replay buffer stays at 0.
 """
-from snake import SnakeGame
-from dqn_agent import DQNAgent
+from snake_rl.agents.dqn_agent import DQNAgent
+from snake_rl.game.snake_game import SnakeGame
+
 
 print("=" * 60)
 print("DQN DEBUG SCRIPT")
 print("=" * 60)
 
-# Create agent
 agent = DQNAgent(
-    state_size=11,
+    state_size=16,
     action_size=4,
     learning_rate=0.001,
     gamma=0.95,
@@ -23,14 +22,12 @@ agent = DQNAgent(
     target_update=1000
 )
 
-# Create game
 game = SnakeGame(agent, training_mode=True, fps=0)
 
 print(f"\nInitial buffer size: {len(agent.memory)}")
 print(f"Agent type: {type(agent).__name__}")
 print(f"Has learn method: {hasattr(agent, 'learn')}")
 
-# Play 5 episodes and check buffer growth
 for episode in range(1, 6):
     print(f"\n--- Episode {episode} ---")
     print(f"Buffer size before episode: {len(agent.memory)}")
@@ -38,24 +35,23 @@ for episode in range(1, 6):
 
     total_reward, score, steps = game.play_episode()
 
-    print(f"Episode finished:")
+    print("Episode finished:")
     print(f"  Steps: {steps}")
     print(f"  Score: {score}")
     print(f"  Buffer size after: {len(agent.memory)}")
-    print(f"  Expected buffer additions: {steps - 1}")  # -1 for first step where last_state is None
+    print(f"  Expected buffer additions: {steps - 1}")
 
     if len(agent.memory) == 0:
-        print("  ⚠️  WARNING: Buffer is still empty!")
+        print("  WARNING: Buffer is still empty!")
         print("  This means learn() is not storing experiences")
         break
     else:
-        print(f"  ✓  Buffer growing! Added {len(agent.memory)} experiences")
+        print(f"  Buffer growing! Added {len(agent.memory)} experiences")
 
 print("\n" + "=" * 60)
 print("DEBUG COMPLETE")
 print("=" * 60)
 
-# Additional checks
 print("\nChecking agent methods:")
 print(f"  get_action: {hasattr(agent, 'get_action')}")
 print(f"  learn: {hasattr(agent, 'learn')}")
